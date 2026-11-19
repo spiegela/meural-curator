@@ -23,7 +23,7 @@ from typing import Any
 import requests
 
 from .config import MuseumsConfig, MuseumSourceConfig
-from .models import RedditPost
+from .models import RedditPost, interleave
 
 LOG = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ class MuseumClient:
     def iter_posts(self) -> list[RedditPost]:
         if not self.config.enabled:
             return []
-        posts: list[RedditPost] = []
+        per_source: list[list[RedditPost]] = []
         for source in self.config.sources:
             if not source.enabled:
                 continue
@@ -66,10 +66,10 @@ class MuseumClient:
                 raise ValueError(f"Unsupported museum provider: {source.provider}")
             LOG.info("Fetching museum source %s via %s", source.name, source.provider)
             try:
-                posts.extend(fetch(source)[: source.max_items])
+                per_source.append(fetch(source)[: source.max_items])
             except Exception as exc:  # one museum down must not stop the run
                 LOG.warning("Museum source %s failed: %s", source.name, exc)
-        return posts
+        return interleave(*per_source)  # alternate museums so the first source doesn't take every upload slot
 
     # --- providers ---
 

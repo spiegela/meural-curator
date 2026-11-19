@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import chain, zip_longest
 
 
 @dataclass(frozen=True)
@@ -41,3 +42,8 @@ class ArtworkMetadata:
     description: str
     medium: str | None = None
     year: str | int | None = None
+
+
+def interleave(*streams: list) -> list:
+    """Round-robin the lists (a, b, a, b, ...), keeping each list's own order."""
+    return [item for item in chain.from_iterable(zip_longest(*streams)) if item is not None]

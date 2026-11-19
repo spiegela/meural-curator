@@ -11,7 +11,7 @@ import requests
 from requests.auth import AuthBase
 
 from .config import ComicCoversConfig, ComicCoverSourceConfig
-from .models import RedditPost
+from .models import RedditPost, interleave
 
 LOG = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ class ComicCoverClient:
         if not self.config.enabled:
             return []
 
-        posts: list[RedditPost] = []
+        per_source: list[list[RedditPost]] = []
         for source in self.config.sources:
             if not source.enabled:
                 continue
@@ -61,11 +61,11 @@ class ComicCoverClient:
                 raise ValueError(f"Unsupported comic cover provider: {source.provider}")
             LOG.info("Fetching comic cover source %s via %s", source.name, provider)
             try:
-                posts.extend(fetch(source))
+                per_source.append(fetch(source))
             except Exception as exc:  # one source down (rate limit, bad key) must not stop the run
                 LOG.warning("Comic cover source %s failed: %s", source.name, exc)
 
-        return posts
+        return interleave(*per_source)  # alternate sources so the first doesn't take every upload slot
 
     def _fetch_gcd_source(self, source: ComicCoverSourceConfig) -> list[RedditPost]:
         posts = []

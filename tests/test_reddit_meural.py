@@ -20,11 +20,11 @@ from reddit_meural.config import (
 from reddit_meural.images import _matches_orientation
 from reddit_meural.meural import MeuralClient
 from reddit_meural.metadata import build_metadata
-from reddit_meural.models import RedditPost
+from reddit_meural.models import RedditPost, interleave
 from reddit_meural.museums import MuseumClient, year_of
 from reddit_meural.reddit import RedditClient, best_image_url
 from reddit_meural.state import StateStore
-from reddit_meural.sync import _interleave, _try_load_gallery_to_device
+from reddit_meural.sync import _try_load_gallery_to_device
 
 
 class FakeMeuralClient(MeuralClient):
@@ -460,7 +460,7 @@ class RedditMeuralTests(unittest.TestCase):
         self.assertIsNone(year_of("Ming dynasty"))
 
     def test_interleave_alternates_candidate_lists(self) -> None:
-        self.assertEqual(_interleave([1, 2, 3, 4], ["a", "b"], []), [1, "a", 2, "b", 3, 4])
+        self.assertEqual(interleave([1, 2, 3, 4], ["a", "b"], []), [1, "a", 2, "b", 3, 4])
 
     def test_gcd_issue_without_cover_is_skipped(self) -> None:
         client = ComicCoverClient(ComicCoversConfig())
