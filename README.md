@@ -97,9 +97,9 @@ Cron example:
 Home Assistant can call the same command with `shell_command`, but it is not required.
 
 In the mikado cluster it runs as a Kubernetes CronJob: chart `charts/stable/reddit-meural` in spieg-charts, HelmRelease
-`apps/home-assistant/app/reddit-meural-helm-release.yaml` in spieg-clusters (every 6 hours, `/data` on a Pool1
-hostPath, credentials from the SOPS `clusterenv.yaml`). The image `spiegela/reddit-meural` is built by
-`.github/workflows/docker-release.yml` when a release is published.
+`apps/reddit-meural/app/helm-release.yaml` in spieg-clusters (every 6 hours, `/data` on a Pool1
+hostPath, credentials from the SOPS `clusterenv.yaml`). The image `docker.io/spiegela/reddit-meural` is built
+in-cluster by Shipwright (`apps/reddit-meural/app/build.yaml` there) from this repo's `main`.
 
 ## Notes
 
