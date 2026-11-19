@@ -202,11 +202,19 @@ WHERE {{
 
     def _get(self, url: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None) -> dict[str, Any]:
         params = {key: value for key, value in (params or {}).items() if value is not None}
-        response = self.session.get(
-            url, params=params, headers={"User-Agent": self.config.user_agent, **(headers or {})}, timeout=30
-        )
-        response.raise_for_status()
-        return response.json()
+        headers = {"User-Agent": self.config.user_agent, **(headers or {})}
+        for attempt in (1, 2):  # one retry: Cleveland's API is slow and sometimes answers 504 from its gateway
+            try:
+                response = self.session.get(url, params=params, headers=headers, timeout=self.config.timeout_seconds)
+                if response.status_code < 500 or attempt == 2:
+                    response.raise_for_status()
+                    return response.json()
+                LOG.info("Retrying %s after HTTP %s", url, response.status_code)
+            except requests.Timeout:
+                if attempt == 2:
+                    raise
+                LOG.info("Retrying %s after a timeout", url)
+        raise AssertionError("unreachable")
 
     def _pick(self, pages: int, source: MuseumSourceConfig) -> int:
         return self.rng.randint(1, max(1, pages)) if source.random_page else 1

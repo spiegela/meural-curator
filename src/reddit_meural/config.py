@@ -105,6 +105,7 @@ class MuseumSourceConfig:
 class MuseumsConfig:
     enabled: bool = False
     user_agent: str = "reddit-meural/0.1 (personal Meural art frame)"
+    timeout_seconds: float = 90.0  # Cleveland can take 30 s+ on a filtered search
     sources: list[MuseumSourceConfig] = field(default_factory=list)
 
 

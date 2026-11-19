@@ -85,7 +85,8 @@ class FakeResponse:
         self.content = b"{}" if payload else b""
 
     def raise_for_status(self) -> None:
-        return None
+        if self.status_code >= 400 and self.status_code != 429:
+            raise requests.HTTPError(f"HTTP {self.status_code}")
 
     def json(self) -> dict:
         return self.payload
@@ -433,6 +434,17 @@ class RedditMeuralTests(unittest.TestCase):
         self.assertIn("AIC-User-Agent", session.calls[0][2])
         self.assertEqual((met.title, met.permalink, met.source_name), ("Met PD", "https://met/10", "The Met"))
         self.assertEqual(session.calls[1][1]["q"], "*")
+
+    def test_museum_request_retries_once_on_gateway_error(self) -> None:
+        class Flaky:
+            def __init__(self) -> None:
+                self.headers: dict[str, str] = {}
+                self.codes = [504, 200]
+
+            def get(self, url, params=None, headers=None, timeout=None) -> FakeResponse:
+                return FakeResponse({"ok": True}, status_code=self.codes.pop(0))
+
+        self.assertEqual(MuseumClient(MuseumsConfig(), session=Flaky())._get("https://museum.test/api"), {"ok": True})
 
     def test_wikidata_collection_source(self) -> None:
         session = FakeMuseumSession()
