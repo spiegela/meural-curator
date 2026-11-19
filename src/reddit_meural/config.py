@@ -90,8 +90,10 @@ class ComicCoversConfig:
 @dataclass(frozen=True)
 class MuseumSourceConfig:
     name: str  # collection label (playlist "{museum}: {name}")
-    provider: str  # aic | met | cleveland
+    provider: str  # aic | met | cleveland | wikidata
     query: str | None = None
+    collection: str | None = None  # wikidata: the museum's QID (Nelson-Atkins: Q1976985)
+    museum: str | None = None  # display name (source_name); defaults per provider
     enabled: bool = True
     max_items: int = 25
     random_page: bool = True  # a random results page each run, so one search keeps yielding new works

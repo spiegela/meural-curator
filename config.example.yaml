@@ -97,6 +97,13 @@ museums:
       max_items: 15   # one API call per object
       params:
         departmentId: 11
+    # Any museum on Wikidata: works in the collection that have a Wikimedia Commons image (paintings by default;
+    # params.instance_of: "" for everything). The Nelson-Atkins' own collection API is closed.
+    - name: "Collection"
+      provider: wikidata
+      collection: Q1976985
+      museum: "Nelson-Atkins Museum of Art"
+      max_items: 25
     - name: "Paintings"
       provider: cleveland
       max_items: 25

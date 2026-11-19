@@ -5,7 +5,7 @@ from .models import ArtworkMetadata, RedditPost
 from .museums import year_of
 
 
-KINDS = {"gcd": "comic", "comicvine": "comic", "metron": "comic", "aic": "museum", "met": "museum", "cleveland": "museum"}
+KINDS = {"gcd": "comic", "comicvine": "comic", "metron": "comic", "aic": "museum", "met": "museum", "cleveland": "museum", "wikidata": "museum"}
 
 
 def build_metadata(post: RedditPost, config: MetadataConfig) -> ArtworkMetadata:

@@ -8,7 +8,7 @@ This is intended to be standalone first. Home Assistant can still control playba
 
 - Pulls top image posts from configured subreddits.
 - Pulls comic book covers from configurable GCD, ComicVine, or Metron sources.
-- Pulls public-domain museum art (Art Institute of Chicago, The Met, Cleveland Museum of Art open access; no API keys), a random page of each search per run.
+- Pulls public-domain museum art (Art Institute of Chicago, The Met, Cleveland Museum of Art open access, and any museum's Wikidata collection with Wikimedia Commons images, such as the Nelson-Atkins; no API keys), a random page of each search per run.
 - Filters by score, NSFW/spoiler flags, dimensions, and prior upload state.
 - Downloads and normalizes images to JPEG.
 - Uploads images to Meural using the current Cognito auth flow used by HA-meural.

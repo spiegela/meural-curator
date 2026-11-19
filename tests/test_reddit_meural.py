@@ -136,6 +136,11 @@ class FakeMuseumSession:
                 {"id": 2, "title": "Wide", "image_id": "def", "thumbnail": {"width": 1200, "height": 800}},
                 {"id": 3, "title": "No image", "image_id": None},
             ]})
+        if "query.wikidata.org" in url:
+            row = lambda qid, w, h: {"w": {"value": f"http://www.wikidata.org/entity/{qid}"}, "title": {"value": qid},  # noqa: E731
+                                     "image": {"value": f"http://commons.wikimedia.org/wiki/Special:FilePath/{qid}.jpg"},
+                                     "date": {"value": "1889-01-01T00:00:00Z"}, "width": {"value": w}, "height": {"value": h}}
+            return FakeResponse({"results": {"bindings": [row("Q1", "73", "92"), row("Q2", "120", "60")]}})
         if url.endswith("/v1.1/search"):
             return FakeResponse({"total": 2, "objectIDs": [10, 11]})
         if "/objects/10" in url:
@@ -428,6 +433,18 @@ class RedditMeuralTests(unittest.TestCase):
         self.assertIn("AIC-User-Agent", session.calls[0][2])
         self.assertEqual((met.title, met.permalink, met.source_name), ("Met PD", "https://met/10", "The Met"))
         self.assertEqual(session.calls[1][1]["q"], "*")
+
+    def test_wikidata_collection_source(self) -> None:
+        session = FakeMuseumSession()
+        source = MuseumSourceConfig(name="Collection", provider="wikidata", collection="Q1976985", museum="Nelson-Atkins Museum of Art")
+        posts = MuseumClient(MuseumsConfig(enabled=True, sources=[source]), orientation="vertical", session=session).iter_posts()
+
+        self.assertEqual([post.id for post in posts], ["wikidata:Q1"])  # Q2 is wider than tall
+        post = posts[0]
+        self.assertEqual(post.image_url, "https://commons.wikimedia.org/wiki/Special:FilePath/Q1.jpg?width=1920")
+        self.assertEqual((post.source_name, post.date, post.permalink), ("Nelson-Atkins Museum of Art", "1889", "https://www.wikidata.org/wiki/Q1"))
+        self.assertIn("wdt:P195 wd:Q1976985", session.calls[0][1]["query"])
+        self.assertIn("wdt:P31 wd:Q3305213", session.calls[0][1]["query"])
 
     def test_metadata_source_overrides_and_museum_year(self) -> None:
         post = RedditPost(id="aic:1", subreddit="Impressionism", title="Tall", author="Painter A", score=0,

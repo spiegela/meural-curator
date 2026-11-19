@@ -4,6 +4,9 @@ Providers:
   aic        Art Institute of Chicago  api.artic.edu/api/v1/artworks/search  (+ IIIF images at 1686 px wide)
   met        The Metropolitan Museum   collectionapi.metmuseum.org v1.1/search, then v1/objects/{id}
   cleveland  Cleveland Museum of Art   openaccess-api.clevelandart.org/api/artworks (cc0=1)
+  wikidata   any museum on Wikidata    works in `collection` (a Wikidata QID) with a Wikimedia Commons image,
+             e.g. the Nelson-Atkins (Q1976985), whose own collection API is closed. Commons hosts only
+             free files; images come as 1920 px wide thumbnails.
 
 Each source is one search. `random_page` (default on) picks a random page of the results each run, so the
 same search keeps surfacing new works instead of the same first page (already uploaded items are skipped by
@@ -29,6 +32,8 @@ AIC_IIIF = "https://www.artic.edu/iiif/2/{image_id}/full/1686,/0/default.jpg"
 MET_SEARCH = "https://collectionapi.metmuseum.org/public/collection/v1.1/search"
 MET_OBJECT = "https://collectionapi.metmuseum.org/public/collection/v1/objects/{id}"
 CLEVELAND_API = "https://openaccess-api.clevelandart.org/api/artworks/"
+WIKIDATA_SPARQL = "https://query.wikidata.org/sparql"
+PAINTING = "Q3305213"
 
 MUSEUM_NAMES = {"aic": "Art Institute of Chicago", "met": "The Met", "cleveland": "Cleveland Museum of Art"}
 
@@ -54,7 +59,9 @@ class MuseumClient:
         for source in self.config.sources:
             if not source.enabled:
                 continue
-            fetch = {"aic": self._aic, "met": self._met, "cleveland": self._cleveland}.get(source.provider.lower())
+            fetch = {"aic": self._aic, "met": self._met, "cleveland": self._cleveland, "wikidata": self._wikidata}.get(
+                source.provider.lower()
+            )
             if fetch is None:
                 raise ValueError(f"Unsupported museum provider: {source.provider}")
             LOG.info("Fetching museum source %s via %s", source.name, source.provider)
@@ -155,6 +162,42 @@ class MuseumClient:
             ))
         return posts
 
+    def _wikidata(self, source: MuseumSourceConfig) -> list[RedditPost]:
+        # The whole collection (a few hundred works at most) in one query, shuffled; physical height/width
+        # (P2048/P2049) stand in for the image size in the orientation filter.
+        if not source.collection:
+            raise ValueError(f"museum source {source.name}: wikidata needs collection (a QID)")
+        instance_of = source.params.get("instance_of", PAINTING)
+        query = f"""
+SELECT ?w (SAMPLE(?l) AS ?title) (SAMPLE(?img) AS ?image) (SAMPLE(?c) AS ?creator) (SAMPLE(?inc) AS ?date)
+       (GROUP_CONCAT(DISTINCT ?ml; separator=", ") AS ?medium) (SAMPLE(?h) AS ?height) (SAMPLE(?wd) AS ?width)
+       (SAMPLE(?url) AS ?page)
+WHERE {{
+  ?w wdt:P195 wd:{source.collection}; wdt:P18 ?img.
+  {f"?w wdt:P31 wd:{instance_of}." if instance_of else ""}
+  OPTIONAL {{ ?w rdfs:label ?l FILTER(LANG(?l) = "en") }}
+  OPTIONAL {{ ?w wdt:P170/rdfs:label ?c FILTER(LANG(?c) = "en") }}
+  OPTIONAL {{ ?w wdt:P571 ?inc }}
+  OPTIONAL {{ ?w wdt:P186/rdfs:label ?ml FILTER(LANG(?ml) = "en") }}
+  OPTIONAL {{ ?w wdt:P2048 ?h }} OPTIONAL {{ ?w wdt:P2049 ?wd }}
+  OPTIONAL {{ ?w wdt:P973 ?url }}
+}} GROUP BY ?w"""
+        rows = self._get(WIKIDATA_SPARQL, {"query": query}, headers={"Accept": "application/sparql-results+json"})
+        rows = [{key: value["value"] for key, value in row.items()} for row in rows.get("results", {}).get("bindings", [])]
+        self.rng.shuffle(rows)
+        posts = []
+        for row in rows:
+            if not self._fits(_float(row.get("width")), _float(row.get("height"))):
+                continue
+            qid = row["w"].rsplit("/", 1)[-1]
+            posts.append(self._post(
+                source, "wikidata", qid, row.get("title"), row.get("creator"),
+                row.get("page") or f"https://www.wikidata.org/wiki/{qid}",
+                row["image"].replace("http://", "https://", 1) + "?width=1920",
+                (row.get("date") or "")[:4] or None, row.get("medium"),
+            ))
+        return posts
+
     # --- helpers ---
 
     def _get(self, url: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None) -> dict[str, Any]:
@@ -170,7 +213,7 @@ class MuseumClient:
 
     def _fits(self, width: Any, height: Any) -> bool:
         try:
-            width, height = int(width), int(height)
+            width, height = float(width), float(height)
         except (TypeError, ValueError):
             return True  # unknown size: let the downloader decide
         if self.orientation == "vertical":
@@ -192,10 +235,17 @@ class MuseumClient:
             over_18=False,
             spoiler=False,
             source_type=provider,
-            source_name=MUSEUM_NAMES[provider],
+            source_name=source.museum or MUSEUM_NAMES.get(provider, provider),
             date=date or None,
             medium=medium or None,
         )
+
+
+def _float(value: str | None) -> float | None:
+    try:
+        return float(value) if value else None
+    except ValueError:
+        return None
 
 
 def _first_line(value: str | None) -> str | None:
