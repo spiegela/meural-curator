@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import logging
+import time
 from urllib.parse import urlparse
 
 import requests
@@ -12,32 +13,65 @@ from .models import RedditPost
 LOG = logging.getLogger(__name__)
 
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp")
+TOKEN_URL = "https://www.reddit.com/api/v1/access_token"
+OAUTH_BASE = "https://oauth.reddit.com"
 
 
 class RedditClient:
+    """Reads subreddit listings. Reddit closed anonymous .json access (May 2026), so reads go through OAuth
+    (app-only client_credentials, a registered script app's client_id/client_secret) at oauth.reddit.com.
+    Headers are passed per request so the bearer token never rides along on image downloads."""
+
     def __init__(self, config: RedditConfig, session: requests.Session | None = None):
         self.config = config
         self.session = session or requests.Session()
-        self.session.headers.update({"User-Agent": config.user_agent})
+        self._token: str | None = None
+        self._token_expires = 0.0
 
     def iter_posts(self) -> list[RedditPost]:
         posts: list[RedditPost] = []
+        if not self.config.subreddits:
+            return posts
+        if not (self.config.client_id and self.config.client_secret):
+            LOG.warning("Skipping Reddit: reddit.client_id/client_secret are not set (anonymous access is blocked)")
+            return posts
         for subreddit in self.config.subreddits:
-            posts.extend(self._fetch_subreddit(subreddit))
+            try:
+                posts.extend(self._fetch_subreddit(subreddit))
+            except Exception as exc:  # one subreddit (or Reddit itself) down must not stop the run
+                LOG.warning("Reddit r/%s failed: %s", subreddit, exc)
         posts.sort(key=lambda post: post.score, reverse=True)
         return posts
 
+    def _headers(self) -> dict[str, str]:
+        if not self._token or time.time() > self._token_expires - 60:
+            response = self.session.post(
+                TOKEN_URL,
+                auth=(self.config.client_id, self.config.client_secret),
+                data={"grant_type": "client_credentials"},
+                headers={"User-Agent": self.config.user_agent},
+                timeout=20,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            if "access_token" not in payload:
+                raise RuntimeError(f"Reddit token request failed: {payload.get('error', 'no access_token')}")
+            self._token = payload["access_token"]
+            self._token_expires = time.time() + float(payload.get("expires_in") or 3600)
+        return {"User-Agent": self.config.user_agent, "Authorization": f"bearer {self._token}"}
+
     def _fetch_subreddit(self, subreddit: str) -> list[RedditPost]:
         listing = self.config.listing.strip("/")
-        url = f"https://www.reddit.com/r/{subreddit}/{listing}.json"
+        url = f"{OAUTH_BASE}/r/{subreddit}/{listing}"
         params = {
             "limit": self.config.limit_per_subreddit,
+            "raw_json": 1,
         }
         if listing == "top":
             params["t"] = self.config.time_filter
 
         LOG.info("Fetching r/%s %s", subreddit, listing)
-        response = self.session.get(url, params=params, timeout=20)
+        response = self.session.get(url, params=params, headers=self._headers(), timeout=20)
         response.raise_for_status()
         payload = response.json()
 

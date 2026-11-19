@@ -103,6 +103,7 @@ in-cluster by Shipwright (`apps/reddit-meural/app/build.yaml` there) from this r
 
 ## Notes
 
+- Reddit needs OAuth: anonymous `.json` reads have returned 403 since May 2026. Create a "script" app at https://www.reddit.com/prefs/apps and set `reddit.client_id` / `reddit.client_secret` (`REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET`). Reads use an app-only token at `oauth.reddit.com`. Without credentials Reddit is skipped with a warning, and a failing subreddit is logged and skipped. Reddit plans to end public API access in March 2027.
 - Reddit sources can include copyrighted images. This tool preserves source attribution in the metadata description; you should still curate subreddits and usage with care.
 - `create_gallery_if_missing` is disabled by default for the main gallery. Source playlists are created by default; set `meural.create_source_playlists` to `false` to keep using only the main gallery.
 - ComicVine requires `COMICVINE_API_KEY`. Metron requires an API token (`METRON_API_TOKEN`, made on your metron.cloud profile under API Tokens), sent as `Authorization: Bearer`. `metron_username`/`metron_password` (Basic auth, which Metron is phasing out) are used only when no token is set.

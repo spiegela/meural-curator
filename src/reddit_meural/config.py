@@ -13,14 +13,16 @@ ENV_PATTERN = re.compile(r"\$\{([A-Z0-9_]+)(?::-(.*?))?\}")
 
 @dataclass(frozen=True)
 class RedditConfig:
-    subreddits: list[str]
+    subreddits: list[str] = field(default_factory=list)
+    client_id: str | None = None  # Reddit script app (reddit.com/prefs/apps); required since anonymous access closed
+    client_secret: str | None = None
     listing: str = "top"
     time_filter: str = "week"
     limit_per_subreddit: int = 40
     min_score: int = 1000
     include_over_18: bool = False
     include_spoilers: bool = False
-    user_agent: str = "reddit-meural/0.1"
+    user_agent: str = "linux:reddit-meural:0.1"
 
 
 @dataclass(frozen=True)
@@ -123,15 +125,13 @@ def load_config(path: str) -> AppConfig:
         raw = yaml.safe_load(handle) or {}
     expanded = _expand_env(raw)
 
-    reddit = RedditConfig(**expanded["reddit"])
+    reddit = RedditConfig(**(expanded.get("reddit") or {}))
     images = ImageConfig(**expanded.get("images", {}))
     meural = MeuralConfig(**expanded["meural"])
     comic_covers = _load_comic_covers_config(expanded.get("comic_covers", {}))
     metadata = MetadataConfig(**expanded.get("metadata", {}))
     sync = SyncConfig(**expanded.get("sync", {}))
 
-    if not reddit.subreddits:
-        raise ValueError("reddit.subreddits must include at least one subreddit")
     if not meural.username or not meural.password:
         raise ValueError("meural.username and meural.password are required")
     if not meural.gallery_id and not meural.gallery_name:

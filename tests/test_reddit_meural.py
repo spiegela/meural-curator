@@ -13,12 +13,13 @@ from reddit_meural.config import (
     ComicCoverSourceConfig,
     MeuralConfig,
     MetadataConfig,
+    RedditConfig,
 )
 from reddit_meural.images import _matches_orientation
 from reddit_meural.meural import MeuralClient
 from reddit_meural.metadata import build_metadata
 from reddit_meural.models import RedditPost
-from reddit_meural.reddit import best_image_url
+from reddit_meural.reddit import RedditClient, best_image_url
 from reddit_meural.state import StateStore
 from reddit_meural.sync import _interleave, _try_load_gallery_to_device
 
@@ -93,6 +94,27 @@ class FakeRateLimitedSession:
 
     def get(self, url: str, params: dict | None = None, auth=None, timeout=None) -> FakeResponse:
         return FakeResponse({}, status_code=429)
+
+
+class FakeRedditSession:
+    def __init__(self, fail: set[str] | None = None) -> None:
+        self.headers: dict[str, str] = {}
+        self.fail = fail or set()
+        self.token_requests: list[tuple] = []
+        self.gets: list[tuple[str, dict, dict]] = []
+
+    def post(self, url, auth=None, data=None, headers=None, timeout=None) -> FakeResponse:
+        self.token_requests.append((url, auth, data, headers))
+        return FakeResponse({"access_token": "tok", "expires_in": 86400})
+
+    def get(self, url, params=None, headers=None, timeout=None) -> FakeResponse:
+        self.gets.append((url, params, headers))
+        subreddit = url.split("/r/")[1].split("/")[0]
+        if subreddit in self.fail:
+            raise requests.HTTPError("403 Blocked")
+        post = {"id": f"{subreddit}1", "title": "Art", "author": "a", "score": 5000, "permalink": "/r/x/1",
+                "url": f"https://i.redd.it/{subreddit}.jpg", "subreddit": subreddit}
+        return FakeResponse({"data": {"children": [{"data": post}]}})
 
 
 class FakeComicSession:
@@ -332,6 +354,28 @@ class RedditMeuralTests(unittest.TestCase):
         self.assertEqual(request.headers["Authorization"], "Bearer tok")
         self.assertEqual(ComicCoverClient(ComicCoversConfig(metron_username="u", metron_password="p"))._metron_auth(), ("u", "p"))
         self.assertIsNone(ComicCoverClient(ComicCoversConfig())._metron_auth())
+
+    def test_reddit_reads_through_oauth_app_token(self) -> None:
+        session = FakeRedditSession(fail={"Broken"})
+        client = RedditClient(
+            RedditConfig(subreddits=["ArtPorn", "Broken", "Museum"], client_id="id", client_secret="sec", user_agent="ua"),
+            session=session,
+        )
+
+        posts = client.iter_posts()
+
+        self.assertEqual(sorted(post.id for post in posts), ["ArtPorn1", "Museum1"])
+        self.assertEqual(len(session.token_requests), 1)
+        url, auth, data, headers = session.token_requests[0]
+        self.assertEqual((url, auth, data), ("https://www.reddit.com/api/v1/access_token", ("id", "sec"), {"grant_type": "client_credentials"}))
+        self.assertEqual(session.gets[0][0], "https://oauth.reddit.com/r/ArtPorn/top")
+        self.assertEqual(session.gets[0][2], {"User-Agent": "ua", "Authorization": "bearer tok"})
+        self.assertNotIn("Authorization", session.headers)
+
+    def test_reddit_without_app_credentials_is_skipped(self) -> None:
+        session = FakeRedditSession()
+        self.assertEqual(RedditClient(RedditConfig(subreddits=["ArtPorn"]), session=session).iter_posts(), [])
+        self.assertEqual(session.gets, [])
 
     def test_interleave_alternates_candidate_lists(self) -> None:
         self.assertEqual(_interleave([1, 2, 3, 4], ["a", "b"], []), [1, "a", 2, "b", 3, 4])

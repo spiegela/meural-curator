@@ -10,7 +10,10 @@ reddit:
   min_score: 1000
   include_over_18: false
   include_spoilers: false
-  user_agent: "reddit-meural/0.1 by ${REDDIT_USERNAME:-local}"
+  # Reddit needs OAuth now: a "script" app from https://www.reddit.com/prefs/apps (id under the name, secret).
+  client_id: "${REDDIT_CLIENT_ID:-}"
+  client_secret: "${REDDIT_CLIENT_SECRET:-}"
+  user_agent: "linux:reddit-meural:0.1 (by /u/${REDDIT_USERNAME:-local})"
 
 images:
   cache_dir: data/images
