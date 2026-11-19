@@ -79,7 +79,8 @@ class ComicCoversConfig:
     comicvine_base_url: str = "https://comicvine.gamespot.com/api"
     comicvine_api_key: str | None = None
     metron_base_url: str = "https://metron.cloud/api"
-    metron_username: str | None = None
+    metron_api_token: str | None = None
+    metron_username: str | None = None  # deprecated by Metron: Basic auth, used only without a token
     metron_password: str | None = None
     sources: list[ComicCoverSourceConfig] = field(default_factory=list)
 

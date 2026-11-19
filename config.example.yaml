@@ -50,8 +50,7 @@ comic_covers:
   comicvine_base_url: "https://comicvine.gamespot.com/api"
   comicvine_api_key: "${COMICVINE_API_KEY:-}"
   metron_base_url: "https://metron.cloud/api"
-  metron_username: "${METRON_USERNAME:-}"
-  metron_password: "${METRON_PASSWORD:-}"
+  metron_api_token: "${METRON_API_TOKEN:-}"  # metron.cloud profile -> API Tokens
   sources:
     - name: "Classic Comic Covers"
       provider: gcd

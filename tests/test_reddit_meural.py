@@ -7,7 +7,7 @@ import unittest
 
 import requests
 
-from reddit_meural.comics import ComicCoverClient, _resolve_dates
+from reddit_meural.comics import BearerAuth, ComicCoverClient, _resolve_dates
 from reddit_meural.config import (
     ComicCoversConfig,
     ComicCoverSourceConfig,
@@ -323,6 +323,15 @@ class RedditMeuralTests(unittest.TestCase):
             ),
             {"filter": "cover_date:2026-10-19|2027-01-17", "after": "2026-11-18", "limit": 5},
         )
+
+    def test_metron_prefers_api_token_over_basic_auth(self) -> None:
+        both = ComicCoverClient(ComicCoversConfig(metron_api_token="tok", metron_username="u", metron_password="p"))
+        auth = both._metron_auth()
+        self.assertIsInstance(auth, BearerAuth)
+        request = auth(requests.Request("GET", "https://metron.cloud/api/issue/").prepare())
+        self.assertEqual(request.headers["Authorization"], "Bearer tok")
+        self.assertEqual(ComicCoverClient(ComicCoversConfig(metron_username="u", metron_password="p"))._metron_auth(), ("u", "p"))
+        self.assertIsNone(ComicCoverClient(ComicCoversConfig())._metron_auth())
 
     def test_interleave_alternates_candidate_lists(self) -> None:
         self.assertEqual(_interleave([1, 2, 3, 4], ["a", "b"], []), [1, "a", 2, "b", 3, 4])

@@ -8,11 +8,26 @@ from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import requests
+from requests.auth import AuthBase
 
 from .config import ComicCoversConfig, ComicCoverSourceConfig
 from .models import RedditPost
 
 LOG = logging.getLogger(__name__)
+
+
+class BearerAuth(AuthBase):
+    """Authorization: Bearer <token> (Metron API tokens, from the profile page's API Tokens)."""
+
+    def __init__(self, token: str) -> None:
+        self.token = token
+
+    def __call__(self, request: requests.PreparedRequest) -> requests.PreparedRequest:
+        request.headers["Authorization"] = f"Bearer {self.token}"
+        return request
+
+
+Auth = AuthBase | tuple[str, str] | None
 
 
 class ComicCoverClient:
@@ -247,7 +262,10 @@ class ComicCoverClient:
             LOG.info("Skipping Metron issue without usable cover: %s", exc)
             return None
 
-    def _metron_auth(self) -> tuple[str, str] | None:
+    def _metron_auth(self) -> Auth:
+        """API token (Bearer) when set; Basic auth (username/password) is Metron's deprecated fallback."""
+        if self.config.metron_api_token:
+            return BearerAuth(self.config.metron_api_token)
         if self.config.metron_username and self.config.metron_password:
             return (self.config.metron_username, self.config.metron_password)
         return None
@@ -258,7 +276,7 @@ class ComicCoverClient:
         *,
         params: dict[str, Any] | None = None,
         limit: int,
-        auth: tuple[str, str] | None = None,
+        auth: Auth = None,
     ) -> list[dict[str, Any]]:
         items: list[dict[str, Any]] = []
         while url and len(items) < limit:
@@ -274,7 +292,7 @@ class ComicCoverClient:
         url: str,
         *,
         params: dict[str, Any] | None = None,
-        auth: tuple[str, str] | None = None,
+        auth: Auth = None,
     ) -> dict[str, Any]:
         response = self.session.get(url, params=params, auth=auth, timeout=30)
         if response.status_code == 429:
