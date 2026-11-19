@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 import logging
+import re
 import time
 from typing import Any
 from urllib.parse import urljoin, urlparse
@@ -133,7 +134,7 @@ class ComicCoverClient:
                 "format": "json",
                 "limit": source.max_items,
                 "field_list": "id,name,issue_number,cover_date,site_detail_url,image,volume,person_credits",
-                **source.params,
+                **_resolve_dates(source.params),
             }
             payload = self._get_url(_api_url(self.config.comicvine_base_url, "issues"), params=params)
             for item in payload.get("results", []):
@@ -196,7 +197,7 @@ class ComicCoverClient:
         if source.params:
             for item in self._get_paginated(
                 _api_url(self.config.metron_base_url, "issue"),
-                params=source.params,
+                params=_resolve_dates(source.params),
                 limit=source.max_items,
                 auth=self._metron_auth(),
             ):
@@ -314,6 +315,20 @@ def _comic_post(
         source_type=provider,
         source_name=source.name,
     )
+
+
+DATE_TOKEN = re.compile(r"\{today(?:([+-])(\d+))?\}")
+
+
+def _resolve_dates(params: dict[str, Any], today: date | None = None) -> dict[str, Any]:
+    """Expand {today}, {today-30}, {today+60} (days) in string params to ISO dates, so queries stay rolling."""
+    today = today or date.today()
+
+    def replace(match: re.Match[str]) -> str:
+        days = int(match.group(2) or 0) * (-1 if match.group(1) == "-" else 1)
+        return (today + timedelta(days=days)).isoformat()
+
+    return {key: DATE_TOKEN.sub(replace, value) if isinstance(value, str) else value for key, value in params.items()}
 
 
 def _api_url(base_url: str, path: str) -> str:

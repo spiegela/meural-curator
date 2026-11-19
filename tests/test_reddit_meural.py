@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 import tempfile
 import unittest
 
 import requests
 
-from reddit_meural.comics import ComicCoverClient
+from reddit_meural.comics import ComicCoverClient, _resolve_dates
 from reddit_meural.config import (
     ComicCoversConfig,
     ComicCoverSourceConfig,
@@ -313,6 +314,15 @@ class RedditMeuralTests(unittest.TestCase):
         )
 
         self.assertEqual([post.id for post in client.iter_posts()], ["gcd:16556"])
+
+    def test_comic_params_expand_relative_dates(self) -> None:
+        self.assertEqual(
+            _resolve_dates(
+                {"filter": "cover_date:{today-30}|{today+60}", "after": "{today}", "limit": 5},
+                today=date(2026, 11, 18),
+            ),
+            {"filter": "cover_date:2026-10-19|2027-01-17", "after": "2026-11-18", "limit": 5},
+        )
 
     def test_interleave_alternates_candidate_lists(self) -> None:
         self.assertEqual(_interleave([1, 2, 3, 4], ["a", "b"], []), [1, "a", 2, "b", 3, 4])
