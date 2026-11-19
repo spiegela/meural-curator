@@ -11,7 +11,7 @@ COPY src ./src
 RUN pip install --no-cache-dir .
 
 VOLUME ["/data"]
-ENV REDDIT_MEURAL_CONFIG=/data/config.yaml
+ENV MEURAL_CURATOR_CONFIG=/data/config.yaml
 
-ENTRYPOINT ["reddit-meural"]
+ENTRYPOINT ["meural-curator"]
 CMD ["sync", "--config", "/data/config.yaml"]

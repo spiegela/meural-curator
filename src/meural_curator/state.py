@@ -2,17 +2,25 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 import json
+import logging
 from pathlib import Path
 import sqlite3
 from typing import Iterator
 
 from .models import ArtworkMetadata, RedditPost
 
+LOG = logging.getLogger(__name__)
+LEGACY_DATABASE = "reddit-meural.sqlite3"  # the default name before the rename to meural-curator
+
 
 class StateStore:
     def __init__(self, path: str):
         self.path = path
         Path(path).parent.mkdir(parents=True, exist_ok=True)
+        legacy = Path(path).with_name(LEGACY_DATABASE)
+        if not Path(path).exists() and legacy.exists():  # keep the upload history across the rename
+            LOG.info("Adopting %s as %s", legacy, path)
+            legacy.rename(path)
         self._init_db()
 
     def already_done(self, post_id: str) -> bool:

@@ -22,7 +22,7 @@ class RedditConfig:
     min_score: int = 1000
     include_over_18: bool = False
     include_spoilers: bool = False
-    user_agent: str = "linux:reddit-meural:0.1"
+    user_agent: str = "linux:meural-curator:0.2"
 
 
 @dataclass(frozen=True)
@@ -75,7 +75,7 @@ class ComicCoverSourceConfig:
 @dataclass(frozen=True)
 class ComicCoversConfig:
     enabled: bool = False
-    user_agent: str = "artwork-meural/0.1"
+    user_agent: str = "meural-curator/0.2"
     enable_gcd: bool = False
     gcd_base_url: str = "https://www.comics.org/api"
     comicvine_base_url: str = "https://comicvine.gamespot.com/api"
@@ -104,7 +104,7 @@ class MuseumSourceConfig:
 @dataclass(frozen=True)
 class MuseumsConfig:
     enabled: bool = False
-    user_agent: str = "reddit-meural/0.1 (personal Meural art frame)"
+    user_agent: str = "meural-curator/0.2 (personal Meural art frame)"
     timeout_seconds: float = 90.0  # Cleveland can take 30 s+ on a filtered search
     sources: list[MuseumSourceConfig] = field(default_factory=list)
 
@@ -129,7 +129,7 @@ class MetadataConfig:
 
 @dataclass(frozen=True)
 class SyncConfig:
-    database: str = "data/reddit-meural.sqlite3"
+    database: str = "data/meural-curator.sqlite3"
     max_uploads_per_run: int = 10
     sleep_between_uploads_seconds: float = 2.0
     dry_run: bool = True

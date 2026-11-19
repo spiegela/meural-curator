@@ -11,33 +11,36 @@ from .remove import remove_artwork
 from .state import StateStore
 from .sync import run_sync
 
+# MEURAL_CURATOR_CONFIG (REDDIT_MEURAL_CONFIG: the name before the rename)
+CONFIG_DEFAULT = os.getenv("MEURAL_CURATOR_CONFIG") or os.getenv("REDDIT_MEURAL_CONFIG") or "config.yaml"
+
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="reddit-meural")
+    parser = argparse.ArgumentParser(prog="meural-curator")
     parser.add_argument("--log-level", default="INFO")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    sync_parser = subparsers.add_parser("sync", help="Curate Reddit posts and upload to Meural")
+    sync_parser = subparsers.add_parser("sync", help="Curate artwork from the configured sources and upload to Meural")
     sync_parser.add_argument("--log-level", dest="command_log_level")
-    sync_parser.add_argument("--config", default=os.getenv("REDDIT_MEURAL_CONFIG", "config.yaml"))
+    sync_parser.add_argument("--config", default=CONFIG_DEFAULT)
     dry_group = sync_parser.add_mutually_exclusive_group()
     dry_group.add_argument("--dry-run", action="store_true", default=None)
     dry_group.add_argument("--no-dry-run", action="store_false", dest="dry_run")
 
     list_parser = subparsers.add_parser("list-meural", help="List Meural devices and galleries")
     list_parser.add_argument("--log-level", dest="command_log_level")
-    list_parser.add_argument("--config", default=os.getenv("REDDIT_MEURAL_CONFIG", "config.yaml"))
+    list_parser.add_argument("--config", default=CONFIG_DEFAULT)
 
     remove_parser = subparsers.add_parser("remove", help="Remove an artwork and block it from future syncs")
     remove_parser.add_argument("identifier", help="Artwork id, e.g. gcd:16556, Reddit id, or Meural item id")
     remove_parser.add_argument("--log-level", dest="command_log_level")
-    remove_parser.add_argument("--config", default=os.getenv("REDDIT_MEURAL_CONFIG", "config.yaml"))
+    remove_parser.add_argument("--config", default=CONFIG_DEFAULT)
     remove_parser.add_argument("--reason", default=None)
     remove_parser.add_argument("--dry-run", action="store_true")
 
     artwork_parser = subparsers.add_parser("list-artwork", help="List local artwork sync history")
     artwork_parser.add_argument("--log-level", dest="command_log_level")
-    artwork_parser.add_argument("--config", default=os.getenv("REDDIT_MEURAL_CONFIG", "config.yaml"))
+    artwork_parser.add_argument("--config", default=CONFIG_DEFAULT)
     artwork_parser.add_argument("--status", default=None)
     artwork_parser.add_argument("--limit", type=int, default=50)
 

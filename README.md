@@ -1,18 +1,20 @@
-# artwork-meural
+# meural-curator
 
-Curate artwork from Reddit and comic-cover data sources into a Meural Canvas cloud gallery, then optionally sync that gallery to a frame so normal Meural rotation keeps working.
+Curate artwork from open-access museum collections, comic-cover databases and (with an approved app) Reddit into a Meural Canvas cloud gallery, then optionally sync that gallery to a frame so normal Meural rotation keeps working.
+
+Formerly `reddit-meural`; renamed in 0.2.0 after Reddit closed anonymous API access. An existing `reddit-meural.sqlite3` next to the configured database is adopted automatically, and `REDDIT_MEURAL_CONFIG` still works as a fallback for `MEURAL_CURATOR_CONFIG`.
 
 This is intended to be standalone first. Home Assistant can still control playback through [HA-meural](https://github.com/GuySie/ha-meural), but permanent uploads and art-card metadata belong on the Meural cloud side.
 
-## What works in this first pass
+## What it does
 
-- Pulls top image posts from configured subreddits.
-- Pulls comic book covers from configurable GCD, ComicVine, or Metron sources.
 - Pulls public-domain museum art (Art Institute of Chicago, The Met, Cleveland Museum of Art open access, and any museum's Wikidata collection with Wikimedia Commons images, such as the Nelson-Atkins; no API keys), a random page of each search per run.
+- Pulls comic book covers from configurable GCD, ComicVine, or Metron sources.
+- Pulls top image posts from configured subreddits (needs a Reddit OAuth app; see Notes).
 - Filters by score, NSFW/spoiler flags, dimensions, and prior upload state.
 - Downloads and normalizes images to JPEG.
 - Uploads images to Meural using the current Cognito auth flow used by HA-meural.
-- Adds uploaded items to an existing Meural gallery and to a playlist for each configured subreddit.
+- Adds uploaded items to an existing Meural gallery and to a playlist per source collection.
 - Optionally syncs those galleries/playlists to a device.
 - Tries to update Meural art-card metadata with title, artist, medium, year, and description.
 - Keeps a SQLite database so repeat runs do not upload duplicates.
@@ -40,19 +42,19 @@ export MEURAL_PASSWORD="your-password"
 Start safely:
 
 ```bash
-reddit-meural sync --config config.yaml --dry-run
+meural-curator sync --config config.yaml --dry-run
 ```
 
 Then list Meural devices and galleries:
 
 ```bash
-reddit-meural list-meural --config config.yaml
+meural-curator list-meural --config config.yaml
 ```
 
 Put either `gallery_id` or `gallery_name` in `config.yaml`. If you want it sent to a specific frame, set `device_name` or `device_id`; names are resolved from Meural’s `/user/devices` endpoint. Then flip `sync.dry_run` to `false` or pass:
 
 ```bash
-reddit-meural sync --config config.yaml --no-dry-run
+meural-curator sync --config config.yaml --no-dry-run
 ```
 
 For a portrait-mounted canvas, keep `images.orientation: vertical` in `config.yaml`. Use `horizontal` for landscape mode, `square` for only square artwork, or `any` to allow every aspect ratio.
@@ -62,29 +64,29 @@ For a portrait-mounted canvas, keep `images.orientation: vertical` in `config.ya
 To remove an uploaded artwork and prevent future syncs from adding it back, pass either its source artwork ID or its Meural item ID:
 
 ```bash
-reddit-meural list-artwork --config config.yaml --status uploaded
-reddit-meural remove gcd:16556 --config config.yaml --reason "not for the canvas"
-reddit-meural remove 123456 --config config.yaml --reason "remove from rotation"
+meural-curator list-artwork --config config.yaml --status uploaded
+meural-curator remove gcd:16556 --config config.yaml --reason "not for the canvas"
+meural-curator remove 123456 --config config.yaml --reason "remove from rotation"
 ```
 
 The command removes the Meural item from any gallery/playlist where it appears, removes it from the configured device when possible, asks the device to sync, and stores the artwork ID in a local blocklist. You can also block a future item before it has ever uploaded:
 
 ```bash
-reddit-meural remove gcd:16556 --config config.yaml --dry-run
-reddit-meural remove gcd:16556 --config config.yaml --reason "skip this cover"
+meural-curator remove gcd:16556 --config config.yaml --dry-run
+meural-curator remove gcd:16556 --config config.yaml --reason "skip this cover"
 ```
 
 ## Docker
 
 ```bash
-docker build -t reddit-meural .
+docker build -t meural-curator .
 mkdir -p data
 cp config.example.yaml data/config.yaml
 docker run --rm \
   -e MEURAL_USERNAME="you@example.com" \
   -e MEURAL_PASSWORD="your-password" \
   -v "$PWD/data:/data" \
-  reddit-meural sync --config /data/config.yaml --dry-run
+  meural-curator sync --config /data/config.yaml --dry-run
 ```
 
 ## Scheduling
@@ -92,15 +94,15 @@ docker run --rm \
 Cron example:
 
 ```cron
-17 */6 * * * cd /path/to/reddit-meural && . .venv/bin/activate && reddit-meural sync --config config.yaml --no-dry-run >> data/run.log 2>&1
+17 */6 * * * cd /path/to/meural-curator && . .venv/bin/activate && meural-curator sync --config config.yaml --no-dry-run >> data/run.log 2>&1
 ```
 
 Home Assistant can call the same command with `shell_command`, but it is not required.
 
-In the mikado cluster it runs as a Kubernetes CronJob: chart `charts/stable/reddit-meural` in spieg-charts, HelmRelease
-`apps/reddit-meural/app/helm-release.yaml` in spieg-clusters (every 6 hours, `/data` on a Pool1
-hostPath, credentials from the SOPS `clusterenv.yaml`). The image `docker.io/spiegela/reddit-meural` is built
-in-cluster by Shipwright (`apps/reddit-meural/app/build.yaml` there) from this repo's `main`.
+In the mikado cluster it runs as a Kubernetes CronJob: chart `charts/stable/meural-curator` in spieg-charts, HelmRelease
+`apps/meural-curator/app/helm-release.yaml` in spieg-clusters (every 6 hours, `/data` on a Pool1
+hostPath, credentials from the SOPS `clusterenv.yaml`). The image `docker.io/spiegela/meural-curator` is built
+in-cluster by Shipwright (`apps/meural-curator/app/build.yaml` there) from this repo's `main`.
 
 ## Notes
 

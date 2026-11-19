@@ -7,8 +7,8 @@ import unittest
 
 import requests
 
-from reddit_meural.comics import BearerAuth, ComicCoverClient, _resolve_dates
-from reddit_meural.config import (
+from meural_curator.comics import BearerAuth, ComicCoverClient, _resolve_dates
+from meural_curator.config import (
     ComicCoversConfig,
     ComicCoverSourceConfig,
     MeuralConfig,
@@ -17,14 +17,14 @@ from reddit_meural.config import (
     MuseumSourceConfig,
     RedditConfig,
 )
-from reddit_meural.images import _matches_orientation
-from reddit_meural.meural import MeuralClient
-from reddit_meural.metadata import build_metadata
-from reddit_meural.models import RedditPost, interleave
-from reddit_meural.museums import MuseumClient, year_of
-from reddit_meural.reddit import RedditClient, best_image_url
-from reddit_meural.state import StateStore
-from reddit_meural.sync import _try_load_gallery_to_device
+from meural_curator.images import _matches_orientation
+from meural_curator.meural import MeuralClient
+from meural_curator.metadata import build_metadata
+from meural_curator.models import RedditPost, interleave
+from meural_curator.museums import MuseumClient, year_of
+from meural_curator.reddit import RedditClient, best_image_url
+from meural_curator.state import StateStore
+from meural_curator.sync import _try_load_gallery_to_device
 
 
 class FakeMeuralClient(MeuralClient):
@@ -470,6 +470,15 @@ class RedditMeuralTests(unittest.TestCase):
         self.assertEqual((metadata.medium, metadata.year), ("Oil on canvas", 1885))
         self.assertEqual(year_of("1635 or earlier"), 1635)
         self.assertIsNone(year_of("Ming dynasty"))
+
+    def test_state_adopts_database_from_before_the_rename(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            StateStore(str(Path(directory) / "reddit-meural.sqlite3")).mark_blocked("gcd:1", item_id=1, reason="x")
+
+            state = StateStore(str(Path(directory) / "meural-curator.sqlite3"))
+
+            self.assertTrue(state.already_done("gcd:1"))
+            self.assertFalse((Path(directory) / "reddit-meural.sqlite3").exists())
 
     def test_interleave_alternates_candidate_lists(self) -> None:
         self.assertEqual(interleave([1, 2, 3, 4], ["a", "b"], []), [1, "a", 2, "b", 3, 4])

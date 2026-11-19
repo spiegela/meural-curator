@@ -3,9 +3,9 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "reddit-meural"
-version = "0.1.1"
-description = "Curate artwork sources into Meural Canvas cloud galleries."
+name = "meural-curator"
+version = "0.2.0"
+description = "Curate museum art, comic covers and more into Meural Canvas cloud galleries."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.scripts]
-reddit-meural = "reddit_meural.cli:main"
+meural-curator = "meural_curator.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

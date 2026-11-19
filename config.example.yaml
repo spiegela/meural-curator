@@ -13,7 +13,7 @@ reddit:
   # Reddit needs OAuth now: a "script" app from https://www.reddit.com/prefs/apps (id under the name, secret).
   client_id: "${REDDIT_CLIENT_ID:-}"
   client_secret: "${REDDIT_CLIENT_SECRET:-}"
-  user_agent: "linux:reddit-meural:0.1 (by /u/${REDDIT_USERNAME:-local})"
+  user_agent: "linux:meural-curator:0.2 (by /u/${REDDIT_USERNAME:-local})"
 
 images:
   cache_dir: data/images
@@ -47,7 +47,7 @@ meural:
 
 comic_covers:
   enabled: false
-  user_agent: "artwork-meural/0.1 by ${REDDIT_USERNAME:-local}"
+  user_agent: "meural-curator/0.2 by ${REDDIT_USERNAME:-local}"
   enable_gcd: false
   gcd_base_url: "https://www.comics.org/api"
   comicvine_base_url: "https://comicvine.gamespot.com/api"
@@ -85,7 +85,7 @@ comic_covers:
 # a random results page is used each run (random_page, max_pages) so a search keeps yielding new works.
 museums:
   enabled: false
-  user_agent: "reddit-meural/0.1 (personal Meural art frame)"
+  user_agent: "meural-curator/0.2 (personal Meural art frame)"
   sources:
     - name: "Impressionism"
       provider: aic
@@ -135,7 +135,7 @@ metadata:
         {source_name}: {permalink}
 
 sync:
-  database: data/reddit-meural.sqlite3
+  database: data/meural-curator.sqlite3
   max_uploads_per_run: 10
   sleep_between_uploads_seconds: 2
   dry_run: true
