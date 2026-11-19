@@ -1,0 +1,100 @@
+reddit:
+  subreddits:
+    - ArtPorn
+    - SculpturePorn
+    - EarthPorn
+    - Museum
+  listing: top
+  time_filter: week
+  limit_per_subreddit: 40
+  min_score: 1000
+  include_over_18: false
+  include_spoilers: false
+  user_agent: "reddit-meural/0.1 by ${REDDIT_USERNAME:-local}"
+
+images:
+  cache_dir: data/images
+  max_dimension: 4096
+  jpeg_quality: 92
+  min_width: 900
+  min_height: 900
+  max_download_mb: 30
+  orientation: vertical
+
+meural:
+  username: "${MEURAL_USERNAME}"
+  password: "${MEURAL_PASSWORD}"
+  token_cache: data/meural-token.json
+  gallery_id: null
+  gallery_name: "Reddit Curated"
+  create_gallery_if_missing: false
+  create_source_playlists: true
+  source_playlist_name_template: "{source_name}: {collection}"
+  create_subreddit_playlists: true
+  subreddit_playlist_name_template: "Reddit: r/{subreddit}"
+  device_id: null
+  device_name: null
+  sync_gallery_to_device: true
+  load_uploaded_item: false
+  metadata_update: true
+  request_timeout_seconds: 90
+  upload_timeout_seconds: 180
+  max_retries: 3
+  retry_backoff_seconds: 3
+
+comic_covers:
+  enabled: false
+  user_agent: "artwork-meural/0.1 by ${REDDIT_USERNAME:-local}"
+  enable_gcd: false
+  gcd_base_url: "https://www.comics.org/api"
+  comicvine_base_url: "https://comicvine.gamespot.com/api"
+  comicvine_api_key: "${COMICVINE_API_KEY:-}"
+  metron_base_url: "https://metron.cloud/api"
+  metron_username: "${METRON_USERNAME:-}"
+  metron_password: "${METRON_PASSWORD:-}"
+  sources:
+    - name: "Classic Comic Covers"
+      provider: gcd
+      enabled: false
+      issue_ids:
+        - 16556 # Fantastic Four #1
+      max_items: 25
+    - name: "This Week's Comic Covers"
+      provider: gcd
+      enabled: false
+      on_sale_weekly: true
+      max_items: 25
+    - name: "ComicVine Cover Query"
+      provider: comicvine
+      enabled: false
+      max_items: 25
+      params:
+        filter: "cover_date:2026-01-01|2026-12-31"
+        sort: "cover_date:desc"
+    - name: "Metron Cover Query"
+      provider: metron
+      enabled: true
+      max_items: 25
+      params:
+        publisher_name: "DC"
+        store_date_range_after: "2026-01-01"
+
+metadata:
+  title_template: "{title}"
+  artist_template: "{author} via {source_name}"
+  medium: "Digital image"
+  year: null
+  description_template: |
+    {title}
+
+    Source: {source_name} ({source_type})
+    Collection: {collection}
+    Credit: {author}
+    Reddit score at collection time: {score}
+    Original discussion: {permalink}
+
+sync:
+  database: data/reddit-meural.sqlite3
+  max_uploads_per_run: 10
+  sleep_between_uploads_seconds: 2
+  dry_run: true

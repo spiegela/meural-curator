@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reddit-meural"
+version = "0.1.0"
+description = "Curate artwork sources into Meural Canvas cloud galleries."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "boto3>=1.34",
+  "Pillow>=10.0",
+  "PyYAML>=6.0",
+  "requests>=2.31",
+]
+
+[project.scripts]
+reddit-meural = "reddit_meural.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
