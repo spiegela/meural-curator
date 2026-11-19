@@ -36,15 +36,18 @@ class ComicCoverClient:
             if provider == "gcd" and not self.config.enable_gcd:
                 LOG.info("Skipping GCD source %s because comic_covers.enable_gcd is false", source.name)
                 continue
-            LOG.info("Fetching comic cover source %s via %s", source.name, provider)
-            if provider == "gcd":
-                posts.extend(self._fetch_gcd_source(source))
-            elif provider == "comicvine":
-                posts.extend(self._fetch_comicvine_source(source))
-            elif provider == "metron":
-                posts.extend(self._fetch_metron_source(source))
-            else:
+            fetch = {
+                "gcd": self._fetch_gcd_source,
+                "comicvine": self._fetch_comicvine_source,
+                "metron": self._fetch_metron_source,
+            }.get(provider)
+            if fetch is None:
                 raise ValueError(f"Unsupported comic cover provider: {source.provider}")
+            LOG.info("Fetching comic cover source %s via %s", source.name, provider)
+            try:
+                posts.extend(fetch(source))
+            except Exception as exc:  # one source down (rate limit, bad key) must not stop the run
+                LOG.warning("Comic cover source %s failed: %s", source.name, exc)
 
         return posts
 

@@ -19,7 +19,7 @@ from reddit_meural.metadata import build_metadata
 from reddit_meural.models import RedditPost
 from reddit_meural.reddit import best_image_url
 from reddit_meural.state import StateStore
-from reddit_meural.sync import _try_load_gallery_to_device
+from reddit_meural.sync import _interleave, _try_load_gallery_to_device
 
 
 class FakeMeuralClient(MeuralClient):
@@ -298,6 +298,24 @@ class RedditMeuralTests(unittest.TestCase):
         self.assertEqual(posts[0].source_name, "Classic Comic Covers")
         self.assertEqual(posts[0].title, "Fantastic Four (1961 series) #1")
         self.assertEqual(posts[0].author, "Jack Kirby; George Klein")
+
+    def test_failing_comic_source_does_not_stop_others(self) -> None:
+        client = ComicCoverClient(
+            ComicCoversConfig(
+                enabled=True,
+                enable_gcd=True,
+                sources=[
+                    ComicCoverSourceConfig(name="No key", provider="comicvine", params={"sort": "cover_date:desc"}),
+                    ComicCoverSourceConfig(name="Classic", provider="gcd", issue_ids=[16556]),
+                ],
+            ),
+            session=FakeComicSession(),
+        )
+
+        self.assertEqual([post.id for post in client.iter_posts()], ["gcd:16556"])
+
+    def test_interleave_alternates_candidate_lists(self) -> None:
+        self.assertEqual(_interleave([1, 2, 3, 4], ["a", "b"], []), [1, "a", 2, "b", 3, 4])
 
     def test_gcd_issue_without_cover_is_skipped(self) -> None:
         client = ComicCoverClient(ComicCoversConfig())

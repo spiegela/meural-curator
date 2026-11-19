@@ -106,6 +106,8 @@ in-cluster by Shipwright (`apps/reddit-meural/app/build.yaml` there) from this r
 - Reddit sources can include copyrighted images. This tool preserves source attribution in the metadata description; you should still curate subreddits and usage with care.
 - `create_gallery_if_missing` is disabled by default for the main gallery. Source playlists are created by default; set `meural.create_source_playlists` to `false` to keep using only the main gallery.
 - ComicVine requires `COMICVINE_API_KEY`. Metron sources use `METRON_USERNAME` and `METRON_PASSWORD` when the endpoint requires authentication.
+- A comic source fetches only its `issue_ids` and/or its `params` query; with neither it finds nothing. A source that fails (bad key, rate limit) is logged and skipped; the rest of the run continues.
+- Each run alternates Reddit and comic candidates, so comic covers get some of the `sync.max_uploads_per_run` slots instead of waiting until every Reddit candidate is done.
 - GCD sources are disabled in the example config and additionally require `comic_covers.enable_gcd: true`. If you enable them, prefer a short curated `issue_ids` list over weekly discovery.
 - If metadata edits fail but upload succeeds, the item remains in the gallery and the run continues.
 - Meural API calls retry transient timeouts, `429`, and server errors. Tune `meural.request_timeout_seconds`, `meural.upload_timeout_seconds`, `meural.max_retries`, and `meural.retry_backoff_seconds` if your network or the Meural API is slow.

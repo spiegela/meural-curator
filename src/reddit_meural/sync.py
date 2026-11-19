@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from itertools import chain, zip_longest
 import logging
 import time
 
@@ -26,7 +27,8 @@ def run_sync(config: AppConfig, *, dry_run: bool | None = None) -> int:
     meural = None if effective_dry_run else MeuralClient(config.meural)
 
     uploaded = 0
-    posts = [*reddit.iter_posts(), *comics.iter_posts()]
+    # Alternate Reddit and comic candidates so comics get upload slots before max_uploads_per_run is spent on Reddit.
+    posts = _interleave(reddit.iter_posts(), comics.iter_posts())
     LOG.info("Found %d candidate posts", len(posts))
 
     gallery_id = None
@@ -193,3 +195,8 @@ def _try_sync_device(meural: MeuralClient, device_id: int | str) -> bool:
         status = exc.response.status_code if exc.response is not None else "unknown"
         LOG.warning("Could not request sync for device %s: HTTP %s", device_id, status)
         return False
+
+
+def _interleave(*streams: list[RedditPost]) -> list[RedditPost]:
+    """Round-robin the candidate lists (a, b, a, b, ...), keeping each list's own order."""
+    return [post for post in chain.from_iterable(zip_longest(*streams)) if post is not None]
