@@ -8,6 +8,7 @@ This is intended to be standalone first. Home Assistant can still control playba
 
 - Pulls top image posts from configured subreddits.
 - Pulls comic book covers from configurable GCD, ComicVine, or Metron sources.
+- Pulls public-domain museum art (Art Institute of Chicago, The Met, Cleveland Museum of Art open access; no API keys), a random page of each search per run.
 - Filters by score, NSFW/spoiler flags, dimensions, and prior upload state.
 - Downloads and normalizes images to JPEG.
 - Uploads images to Meural using the current Cognito auth flow used by HA-meural.
@@ -109,7 +110,8 @@ in-cluster by Shipwright (`apps/reddit-meural/app/build.yaml` there) from this r
 - ComicVine requires `COMICVINE_API_KEY`. Metron requires an API token (`METRON_API_TOKEN`, made on your metron.cloud profile under API Tokens), sent as `Authorization: Bearer`. `metron_username`/`metron_password` (Basic auth, which Metron is phasing out) are used only when no token is set.
 - A comic source fetches only its `issue_ids` and/or its `params` query; with neither it finds nothing. A source that fails (bad key, rate limit) is logged and skipped; the rest of the run continues.
 - String `params` may use `{today}`, `{today-N}` or `{today+N}` (days), expanded to ISO dates each run, for rolling windows such as ComicVine `filter: "cover_date:{today-30}|{today+60}"` or Metron `store_date_range_after: "{today-21}"`.
-- Each run alternates Reddit and comic candidates, so comic covers get some of the `sync.max_uploads_per_run` slots instead of waiting until every Reddit candidate is done.
+- Museum sources (`museums`) drop works that don't match `images.orientation` before download where the API gives a size (AIC, Cleveland). The Met's search was replaced by `v1.1/search` (Oct 2026). `metadata.sources` overrides templates per source type or kind, so museum items can credit the artist plainly while Reddit keeps `u/... via r/...`.
+- Each run alternates Reddit, comic and museum candidates, so each source gets some of the `sync.max_uploads_per_run` slots instead of waiting until every Reddit candidate is done.
 - GCD sources are disabled in the example config and additionally require `comic_covers.enable_gcd: true`. If you enable them, prefer a short curated `issue_ids` list over weekly discovery.
 - If metadata edits fail but upload succeeds, the item remains in the gallery and the run continues.
 - Meural API calls retry transient timeouts, `429`, and server errors. Tune `meural.request_timeout_seconds`, `meural.upload_timeout_seconds`, `meural.max_retries`, and `meural.retry_backoff_seconds` if your network or the Meural API is slow.

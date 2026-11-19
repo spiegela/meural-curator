@@ -17,6 +17,8 @@ class RedditPost:
     spoiler: bool
     source_type: str = "reddit"
     source_name: str | None = None
+    date: str | None = None  # museum works: display date ("c. 1665"); medium: "Oil on canvas"
+    medium: str | None = None
 
     @property
     def collection(self) -> str:

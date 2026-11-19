@@ -13,12 +13,15 @@ from reddit_meural.config import (
     ComicCoverSourceConfig,
     MeuralConfig,
     MetadataConfig,
+    MuseumsConfig,
+    MuseumSourceConfig,
     RedditConfig,
 )
 from reddit_meural.images import _matches_orientation
 from reddit_meural.meural import MeuralClient
 from reddit_meural.metadata import build_metadata
 from reddit_meural.models import RedditPost
+from reddit_meural.museums import MuseumClient, year_of
 from reddit_meural.reddit import RedditClient, best_image_url
 from reddit_meural.state import StateStore
 from reddit_meural.sync import _interleave, _try_load_gallery_to_device
@@ -115,6 +118,32 @@ class FakeRedditSession:
         post = {"id": f"{subreddit}1", "title": "Art", "author": "a", "score": 5000, "permalink": "/r/x/1",
                 "url": f"https://i.redd.it/{subreddit}.jpg", "subreddit": subreddit}
         return FakeResponse({"data": {"children": [{"data": post}]}})
+
+
+class FakeMuseumSession:
+    """Canned AIC and Met responses; anything else (Cleveland here) raises."""
+
+    def __init__(self) -> None:
+        self.headers: dict[str, str] = {}
+        self.calls: list[tuple[str, dict, dict]] = []
+
+    def get(self, url, params=None, headers=None, timeout=None) -> FakeResponse:
+        self.calls.append((url, params or {}, headers or {}))
+        if "artic.edu" in url:
+            return FakeResponse({"pagination": {"total_pages": 1}, "data": [
+                {"id": 1, "title": "Tall", "artist_display": "Painter A\nFrench, 1850", "date_display": "c. 1885",
+                 "medium_display": "Oil on canvas", "image_id": "abc", "thumbnail": {"width": 800, "height": 1200}},
+                {"id": 2, "title": "Wide", "image_id": "def", "thumbnail": {"width": 1200, "height": 800}},
+                {"id": 3, "title": "No image", "image_id": None},
+            ]})
+        if url.endswith("/v1.1/search"):
+            return FakeResponse({"total": 2, "objectIDs": [10, 11]})
+        if "/objects/10" in url:
+            return FakeResponse({"isPublicDomain": True, "primaryImage": "https://images.met/10.jpg", "title": "Met PD",
+                                 "artistDisplayName": "Painter B", "objectURL": "https://met/10", "objectDate": "1518"})
+        if "/objects/11" in url:
+            return FakeResponse({"isPublicDomain": False, "primaryImage": "", "title": "In copyright"})
+        raise requests.ConnectionError("cleveland down")
 
 
 class FakeComicSession:
@@ -376,6 +405,42 @@ class RedditMeuralTests(unittest.TestCase):
         session = FakeRedditSession()
         self.assertEqual(RedditClient(RedditConfig(subreddits=["ArtPorn"]), session=session).iter_posts(), [])
         self.assertEqual(session.gets, [])
+
+    def test_museum_sources_map_filter_and_isolate_failures(self) -> None:
+        session = FakeMuseumSession()
+        client = MuseumClient(
+            MuseumsConfig(enabled=True, sources=[
+                MuseumSourceConfig(name="Impressionism", provider="aic", query="impressionism"),
+                MuseumSourceConfig(name="Paintings", provider="met", random_page=False),
+                MuseumSourceConfig(name="Portraits", provider="cleveland"),
+            ]),
+            orientation="vertical",
+            session=session,
+        )
+
+        posts = client.iter_posts()
+
+        self.assertEqual([post.id for post in posts], ["aic:1", "met:10"])  # wide, imageless, non-PD, failing: dropped
+        aic, met = posts
+        self.assertEqual(aic.image_url, "https://www.artic.edu/iiif/2/abc/full/1686,/0/default.jpg")
+        self.assertEqual((aic.author, aic.source_name, aic.subreddit, aic.medium), ("Painter A", "Art Institute of Chicago", "Impressionism", "Oil on canvas"))
+        self.assertEqual(session.calls[0][1]["query[term][is_public_domain]"], "true")
+        self.assertIn("AIC-User-Agent", session.calls[0][2])
+        self.assertEqual((met.title, met.permalink, met.source_name), ("Met PD", "https://met/10", "The Met"))
+        self.assertEqual(session.calls[1][1]["q"], "*")
+
+    def test_metadata_source_overrides_and_museum_year(self) -> None:
+        post = RedditPost(id="aic:1", subreddit="Impressionism", title="Tall", author="Painter A", score=0,
+                          permalink="https://aic/1", created_utc=0, image_url="x", over_18=False, spoiler=False,
+                          source_type="aic", source_name="Art Institute of Chicago", date="c. 1885", medium="Oil on canvas")
+        config = MetadataConfig(artist_template="u/{author} via r/{subreddit}", medium="Digital image",
+                                sources={"museum": {"artist_template": "{author}", "description_template": "{title}, {date}"},
+                                         "aic": {"description_template": "{title} ({source_name})"}})
+        metadata = build_metadata(post, config)
+        self.assertEqual((metadata.artist_name, metadata.description), ("Painter A", "Tall (Art Institute of Chicago)"))
+        self.assertEqual((metadata.medium, metadata.year), ("Oil on canvas", 1885))
+        self.assertEqual(year_of("1635 or earlier"), 1635)
+        self.assertIsNone(year_of("Ming dynasty"))
 
     def test_interleave_alternates_candidate_lists(self) -> None:
         self.assertEqual(_interleave([1, 2, 3, 4], ["a", "b"], []), [1, "a", 2, "b", 3, 4])

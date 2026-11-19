@@ -88,6 +88,25 @@ class ComicCoversConfig:
 
 
 @dataclass(frozen=True)
+class MuseumSourceConfig:
+    name: str  # collection label (playlist "{museum}: {name}")
+    provider: str  # aic | met | cleveland
+    query: str | None = None
+    enabled: bool = True
+    max_items: int = 25
+    random_page: bool = True  # a random results page each run, so one search keeps yielding new works
+    max_pages: int = 40
+    params: dict[str, Any] = field(default_factory=dict)  # extra provider query params
+
+
+@dataclass(frozen=True)
+class MuseumsConfig:
+    enabled: bool = False
+    user_agent: str = "reddit-meural/0.1 (personal Meural art frame)"
+    sources: list[MuseumSourceConfig] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
 class MetadataConfig:
     title_template: str = "{title}"
     artist_template: str = "{author} via {source_name}"
@@ -100,6 +119,9 @@ class MetadataConfig:
         "Credit: {author}\n"
         "Original link: {permalink}"
     )
+    # Per-source overrides of the templates/medium above, keyed by source type (reddit, gcd, comicvine, metron,
+    # aic, met, cleveland) or kind (comic, museum); the most specific wins.
+    sources: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -116,6 +138,7 @@ class AppConfig:
     images: ImageConfig
     meural: MeuralConfig
     comic_covers: ComicCoversConfig = field(default_factory=ComicCoversConfig)
+    museums: MuseumsConfig = field(default_factory=MuseumsConfig)
     metadata: MetadataConfig = field(default_factory=MetadataConfig)
     sync: SyncConfig = field(default_factory=SyncConfig)
 
@@ -129,6 +152,11 @@ def load_config(path: str) -> AppConfig:
     images = ImageConfig(**expanded.get("images", {}))
     meural = MeuralConfig(**expanded["meural"])
     comic_covers = _load_comic_covers_config(expanded.get("comic_covers", {}))
+    raw_museums = dict(expanded.get("museums") or {})
+    museums = MuseumsConfig(
+        **{key: value for key, value in raw_museums.items() if key != "sources"},
+        sources=[MuseumSourceConfig(**source) for source in raw_museums.get("sources") or []],
+    )
     metadata = MetadataConfig(**expanded.get("metadata", {}))
     sync = SyncConfig(**expanded.get("sync", {}))
 
@@ -142,6 +170,7 @@ def load_config(path: str) -> AppConfig:
         images=images,
         meural=meural,
         comic_covers=comic_covers,
+        museums=museums,
         metadata=metadata,
         sync=sync,
     )

@@ -81,6 +81,28 @@ comic_covers:
         publisher_name: "DC"
         store_date_range_after: "2026-01-01"
 
+# Open-access museum art (public domain / CC0, no keys). provider: aic | met | cleveland. Each source is one search;
+# a random results page is used each run (random_page, max_pages) so a search keeps yielding new works.
+museums:
+  enabled: false
+  user_agent: "reddit-meural/0.1 (personal Meural art frame)"
+  sources:
+    - name: "Impressionism"
+      provider: aic
+      query: "impressionism"
+      max_items: 25
+    - name: "European Paintings"
+      provider: met
+      query: "painting"
+      max_items: 15   # one API call per object
+      params:
+        departmentId: 11
+    - name: "Paintings"
+      provider: cleveland
+      max_items: 25
+      params:
+        type: Painting
+
 metadata:
   title_template: "{title}"
   artist_template: "{author} via {source_name}"
@@ -94,6 +116,16 @@ metadata:
     Credit: {author}
     Reddit score at collection time: {score}
     Original discussion: {permalink}
+  # Overrides by source type (reddit, gcd, comicvine, metron, aic, met, cleveland) or kind (comic, museum).
+  # Extra fields: {date}, {medium}, {kind}. Museum works also fill Meural's medium and year.
+  sources:
+    museum:
+      artist_template: "{author}"
+      description_template: |
+        {title}, {date}
+        {medium}
+
+        {source_name}: {permalink}
 
 sync:
   database: data/reddit-meural.sqlite3

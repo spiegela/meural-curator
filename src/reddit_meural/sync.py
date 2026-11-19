@@ -11,6 +11,7 @@ from .comics import ComicCoverClient
 from .images import download_and_prepare
 from .metadata import build_metadata
 from .meural import MeuralClient
+from .museums import MuseumClient
 from .models import RedditPost
 from .reddit import RedditClient
 from .state import StateStore
@@ -24,11 +25,12 @@ def run_sync(config: AppConfig, *, dry_run: bool | None = None) -> int:
     session = requests.Session()
     reddit = RedditClient(config.reddit, session=session)
     comics = ComicCoverClient(config.comic_covers, session=session)
+    museums = MuseumClient(config.museums, orientation=config.images.orientation, session=session)
     meural = None if effective_dry_run else MeuralClient(config.meural)
 
     uploaded = 0
-    # Alternate Reddit and comic candidates so comics get upload slots before max_uploads_per_run is spent on Reddit.
-    posts = _interleave(reddit.iter_posts(), comics.iter_posts())
+    # Alternate Reddit, comic and museum candidates so each gets upload slots before max_uploads_per_run is spent.
+    posts = _interleave(reddit.iter_posts(), comics.iter_posts(), museums.iter_posts())
     LOG.info("Found %d candidate posts", len(posts))
 
     gallery_id = None
